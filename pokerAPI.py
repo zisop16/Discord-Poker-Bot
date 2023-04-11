@@ -11,13 +11,25 @@ class PokerGame:
         self.sb = 1
         self.ante = 0
         self.pot = self.sb + self.bb + self.ante
-        self.stacks = [0 for i in range(6)]
+        self.seats = 6
+        # Stacks of each player
+        self.stacks = [0 for i in range(self.seats)]
+        # Chips placed into the pot from each player on current betting round
+        self.current_bets = [0 for i in range(self.seats)]
         self.occupied_seats = set()
         self.active_seats = set()
+        # Seat with the dealer button
         self.dealer = None
-        self.seats = 6
         self.previous_raise = self.bb
+        # Current bet placed by the most recent player
         self.current_bet = self.bb
+        # Seats which still have hands in play
+        self.remaining_hands = set()
+        # List of seats yet to act, in order, as tuples
+        # Ex: [(1, True), (2, False), (4, False)]
+        # Means that seat 1 is yet to act and MAY place a bet, and seats 2 and 4 are yet to act and may NOT place a bet
+        self.action_sequence = []
+
 
     def buyin(self, seat, stack):
         if seat in self.occupied_seats:
@@ -64,8 +76,19 @@ class PokerGame:
     def fold(self):
         pass
     def bet(self, chips):
+        acting_player = self.action_sequence[0][0]
+        reopen_action = True
         if ((chips * 10) % 1) != 0:
             raise ValueError("Invalid Bet")
+        raise_req = self.current_bet + self.previous_raise
+        if chips < raise_req:
+            raise ValueError("Invalid Bet")
+        self.previous_raise = chips - self.current_bet
+        player_previous_bet = self.current_bets[self.acting_player]
+        additional_chips = chips - player_previous_bet
+        self.current_bet = chips
+        self.stacks[self.acting_player] -= additional_chips
+        self.current_bets[self.acting_player] = chips
          
     def call(self):
         pass
