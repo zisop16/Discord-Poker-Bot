@@ -354,19 +354,36 @@ class PokerGame:
 
     def showdown(self):
         # Ordered list of tuples (seat, chips_invested) sorted by chips_invested
-        invested = [(seat, self.chips_invested[seat]) for seat in self.chips_invested]
+        invested = [(seat, chips) for (seat, chips) in enumerate(self.chips_invested)]
+        # Sort chips_invested by number of chips, from least to greatest
         invested = sorted(invested, key=lambda data: data[1])
-        ind = 0
+        first_pot = True
         # Shitty algorithm for calculating sidepots
-        # Note: we do not pay attention to the side pot of the player who has more
-        # Chips committed than all other players, because he will simply receive back his extra money
-        # TODO: fix bug with dead money not properly being added to pot
-        while ind < (len(invested) - 1):
-            curr_chips_req = invested[ind][1]
-            curr_pot = curr_chips_req * (len(invested) - ind)
-            for i in range(ind, len(invested)):
-                seat, curr_chips = invested[i]
-                invested[i] = seat, (curr_chips - curr_chips_req)
+        while True:
+            should_break = False
+            # Calculating next side pot, ignore all seats who have 0 chips invested
+            while invested[0][1] == 0:
+                curr_seat = invested[0][0]
+                # Players who have no chips invested in subsequent pots should not be included as possible winners for those pots
+                if curr_seat in self.remaining_hands:
+                    self.remaining_hands.remove(curr_seat)
+                invested.pop(0)
+                if len(invested) == 1:
+                    # If only one person remains after removing all people with no chips invested,
+                    # Then stop calculating sidepots
+                    should_break = True
+                    break
+            if should_break:
+                break
+            curr_chips_req = invested[0][1]
+            curr_pot = curr_chips_req * len(invested)
+            # The winner of the main pot is always awarded the ante
+            if first_pot:
+                curr_pot += self.ante
+                first_pot = False
+            for i in range(len(invested)):
+                curr_seat, curr_chips = invested[i]
+                invested[i] = curr_seat, curr_chips - curr_chips_req
             curr_pot_winners = self.winners()
             num_winners = len(curr_pot_winners)
             for winner in curr_pot_winners:
@@ -381,16 +398,9 @@ class PokerGame:
                 curr_ind = (minimum_ind + chip) % num_winners
                 self.stacks[curr_pot_winners[curr_ind]] += 1
 
-            # Calculating next side pot, ignore all seats who have 0 chips invested
-            while ind < len(invested) and invested[ind][1] == 0:
-                seat = invested[ind][0]
-                self.remaining_hands.remove(seat)
-                ind += 1
-
         # Return extra chips to deep stacked player's stack
-        if len(invested) == 1:
-            seat, chips = invested[0]
-            self.stacks[seat] += chips
+        final_seat, extra_chips = invested[0]
+        self.stacks[final_seat] += extra_chips
 
     def first_to_act(self, seats):
         # Weird modulus algorithm to find seat closest to SB
@@ -454,9 +464,9 @@ if __name__ == '__main__':
     game = PokerGame()
     game.buyin(0, 200)
     game.sitin(0)
-    game.buyin(1, 200)
+    game.buyin(1, 250)
     game.sitin(1)
-    game.buyin(2, 200)
+    game.buyin(2, 180)
     game.sitin(2)
 
     # Preflop
@@ -481,8 +491,6 @@ if __name__ == '__main__':
     # River
     game.check()
     game.bet(200)
-    for bet in game.current_bets:
-        print(bet)
     game.call()
 
     for stack in game.stacks:
