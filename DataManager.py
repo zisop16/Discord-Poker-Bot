@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 from dotenv import load_dotenv, find_dotenv
 import os
+import time
 
 def default_table_options():
     options = {
@@ -15,8 +16,24 @@ def default_table_options():
     }
     return options
 
-def options_string(options):
-    pass
+def get_options_string(options):
+    order = ["min_buy", "max_buy", "match_stack", "bb", "sb", "ante", "seats", "time_bank"]
+    final = ""
+    for option in order:
+        curr_setting = options[option]
+        final += str(curr_setting) + ','
+    if final[len(final) - 1] == ',':
+        final = final[:len(final) - 1]
+    return final
+
+def eval_options_string(string_options):
+    order = ["min_buy", "max_buy", "match_stack", "bb", "sb", "ante", "seats", "time_bank"]
+    option_arr = string_options.split(',')
+    options = {}
+    for option, setting in zip(order, option_arr):
+        options[option] = setting
+    return options
+
 
 class DataManager:
     def __init__(self, password):
@@ -24,6 +41,37 @@ class DataManager:
         cluster = MongoClient(api_url)
         db = cluster["Poker"]
         self.collection = db["PlayerData"]
+
+    def user_data(self, userID):
+        result = self.collection.find_one({"_id": userID})
+        return result
+
+    def generate_chips(self, userID):
+        """_summary_
+        Attempt to give free_chips to user, with cooldown wait_time
+        Args:
+            userID (int): User's Discord ID
+
+        Returns:
+            bool: Whether the user was able to receive free chips
+        """
+        free_chips = 200
+        self.safe_add(userID)
+        data = self.user_data(userID)
+        last_pay = data["last_paycheck"]
+        curr_time = time.time()
+        wait_time = 3600
+        may_receive = (curr_time - last_pay) >= wait_time
+        if may_receive:
+            self.add_chips(userID, free_chips)
+            query = {"_id": userID}
+            command = {
+                "$set": {
+                    "last_paycheck": curr_time
+                }       
+            }
+            self.collection.update_one(query, command)
+        return may_receive
 
     def add_user(self, userID):
         """_summary_
@@ -34,6 +82,8 @@ class DataManager:
         post = {
             "_id": userID,
             "chips": 0,
+            # Unix time of last time user asked for free chips
+            "last_paycheck": 0,
             "tables": {}
         }
         self.collection.insert_one(post)
@@ -47,8 +97,7 @@ class DataManager:
         Returns:
             bool: Whether the user exists
         """
-        result = self.collection.find_one({"_id": userID})
-        return result is not None
+        return self.user_data(userID) is not None
     
     def table_exists(self, userID, table_name):
         """_summary_
@@ -60,8 +109,8 @@ class DataManager:
         Returns:
             bool: Whether the table exists
         """
-        result = self.collection.find_one({"_id": userID})
-        tables = result["tables"]
+        data = self.user_data(userID)
+        tables = data["tables"]
         return table_name in tables
     
     def safe_add(self, userID):
@@ -83,8 +132,8 @@ class DataManager:
             int: number of chips in balance
         """
         self.safe_add(userID)
-        result = self.collection.find_one({"_id": userID})
-        chips = result["chips"]
+        data = self.user_data(userID)
+        chips = data["chips"]
         return chips
     
     def remove_chips(self, userID, chips):
@@ -160,8 +209,8 @@ class DataManager:
         return self.get_all_tables(userID).keys()
 
     def get_all_tables(self, userID):
-        result = self.collection.find_one({"_id": userID})
-        tables = result["tables"]
+        data = self.user_data(userID)
+        tables = data["tables"]
         return tables
 
     def get_options(self, userID, table_name):
@@ -172,8 +221,10 @@ if __name__ == '__main__':
     load_dotenv(find_dotenv())
     password = os.getenv("MONGO_PASS")
     manager = DataManager(password)
+    
     random_id = 36
     dog_id = 336060423713325056
-    options = default_table_options()
-    manager.create_table(dog_id, "DogTable", options)
-    manager.set_chips(dog_id, 450)
+    
+    received = manager.generate_chips(dog_id)
+    print(received)
+    

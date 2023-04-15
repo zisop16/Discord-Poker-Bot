@@ -2,6 +2,8 @@ import discord
 import os
 from dotenv import load_dotenv, find_dotenv
 import json
+from DataManager import *
+from PokerGame import *
 
 intents = discord.Intents.default()
 intents.message_content = True
