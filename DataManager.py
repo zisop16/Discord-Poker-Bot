@@ -6,6 +6,7 @@ def default_table_options():
     options = {
         "min_buy": 40,
         "max_buy": 100,
+        "match_stack": 0,
         "bb": 2,
         "sb": 1,
         "ante": 0,
