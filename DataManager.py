@@ -40,10 +40,11 @@ class DataManager:
         api_url = f"mongodb+srv://zisop16:{password}@cluster0.khfjusz.mongodb.net/?retryWrites=true&w=majority"
         cluster = MongoClient(api_url)
         db = cluster["Poker"]
-        self.collection = db["PlayerData"]
+        self.player_data = db["PlayerData"]
+        self.channel_data = db["Channels"]
 
     def user_data(self, userID):
-        result = self.collection.find_one({"_id": userID})
+        result = self.player_data.find_one({"_id": userID})
         return result
 
     def generate_chips(self, userID):
@@ -70,7 +71,7 @@ class DataManager:
                     "last_paycheck": curr_time
                 }       
             }
-            self.collection.update_one(query, command)
+            self.player_data.update_one(query, command)
         return may_receive
 
     def add_user(self, userID):
@@ -86,7 +87,7 @@ class DataManager:
             "last_paycheck": 0,
             "tables": {}
         }
-        self.collection.insert_one(post)
+        self.player_data.insert_one(post)
 
     def user_exists(self, userID):
         """_summary_
@@ -159,7 +160,7 @@ class DataManager:
                 "chips": chips
             }       
         }
-        self.collection.update_one(query, command)
+        self.player_data.update_one(query, command)
 
     def set_chips(self, userID, chips):
         """_summary_
@@ -175,7 +176,7 @@ class DataManager:
                 "chips": chips
             }       
         }
-        self.collection.update_one(query, command)
+        self.player_data.update_one(query, command)
 
     def create_table(self, userID, table_name, options):
         """_summary_
@@ -203,7 +204,7 @@ class DataManager:
                 f"tables.{table_name}": options
             }
         }
-        self.collection.update_one(query, command)
+        self.player_data.update_one(query, command)
 
     def get_table_names(self, userID):
         return self.get_all_tables(userID).keys()
@@ -216,6 +217,32 @@ class DataManager:
     def get_options(self, userID, table_name):
         table_name = table_name.lower()
         return self.get_all_tables(userID)[table_name]
+    
+    def initialize_channels(self):
+        post = {
+            "_id": "channels",
+            "arr": []
+        }
+        self.channel_data.insert_one(post)
+
+    def channel_enabled(self, channelID):
+        query = {"_id": "channels"}
+        channels = self.channel_data.find_one(query)["arr"]
+        return channelID in channels
+    
+    def disable_channel(self, channelID):
+        if not self.channel_enabled(channelID):
+            return
+        query = {"_id": "channels"}
+        command = {"$pull": {"arr": channelID}}
+        self.channel_data.update_one(query, command)
+    
+    def enable_channel(self, channelID):
+        if self.channel_enabled(channelID):
+            return
+        query = {"_id": "channels"}
+        command = {"$push": {"arr": channelID}}
+        self.channel_data.update_one(query, command)
 
 if __name__ == '__main__':
     load_dotenv(find_dotenv())
@@ -224,7 +251,7 @@ if __name__ == '__main__':
     
     random_id = 36
     dog_id = 336060423713325056
+    general = 853046140412493848
     
-    received = manager.generate_chips(dog_id)
-    print(received)
+    manager.disable_channel(general)
     
