@@ -5,7 +5,7 @@ from dotenv import load_dotenv, find_dotenv
 import json
 
 from DataManager import *
-from CommandInterface import *
+from PokerTable import *
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -132,11 +132,22 @@ async def delete_table(context, table_name):
     if not enabled:
         return
     userID = context.author.id
-    if manager.table_exists(userID, table_name):
-        manager.delete_table(userID, table_name)
-        await channel.send(f"<@{userID}> deleted table {table_name}")
-    else:
+    if not manager.table_exists(userID, table_name):
         return
+    manager.delete_table(userID, table_name)
+    await channel.send(f"<@{userID}> deleted table {table_name}")
+    
+async def open_table(context, table_name):
+    channel = context.channel
+    enabled = manager.channel_enabled(channel.id)
+    if not enabled:
+        return
+    userID = context.author.id
+    options = manager.get_table(userID, table_name)
+    if not table:
+        return
+    table = PokerTable(options)
+    table.open()
 
 @client.event
 async def on_command_error(context, error):

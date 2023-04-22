@@ -149,6 +149,12 @@ class DataManager:
         tables = data["tables"]
         return table_name.lower() in tables
     
+    def get_table(self, userID, table_name):
+        data = self.user_data(userID)
+        tables = data["tables"]
+        table_name = table_name.lower()
+        return tables[table_name] if table_name in tables else False
+    
     def safe_add(self, userID):
         """_summary_
         Add user to database, if they do not yet exist
