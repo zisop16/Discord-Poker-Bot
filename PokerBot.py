@@ -25,6 +25,9 @@ def get_mentioned(mention_text):
                 return int(middle)
     return False
 
+async def error(channel, message):
+    await channel.send(f"Error: {message}")
+
 @client.command(name="enable")
 @commands.has_permissions(manage_channels=True)
 async def enable_channel(context):
@@ -88,6 +91,7 @@ async def give(context, user, amount):
     if amount.isnumeric():
         amount = int(amount)
     else:
+        await error(channel, "Please enter a positive integer amount")
         return
     giver_id = context.author.id
     giver_balance = manager.get_chips(giver_id)
@@ -95,6 +99,44 @@ async def give(context, user, amount):
     manager.add_chips(mentioned, amount)
     manager.remove_chips(giver_id, amount)
     await channel.send(f"<@{giver_id}> gave {amount} chips to <@{mentioned}>")
+
+@client.command(name="create")
+async def create_table(context, *args):
+    channel = context.channel
+    enabled = manager.channel_enabled(channel.id)
+    if not enabled:
+        return
+    if len(args) == 1:
+        options = default_table_options()
+    elif len(args) == 2:
+        options = eval_options_string(args[1])
+        if not options:
+            await error(channel, "Invalid options string")
+    else:
+        return
+    name = args[0]
+    userID = context.author.id
+    if manager.table_exists(userID, name):
+        await error(channel, "You've already created a table with that name")
+        return
+    success = manager.create_table(userID, name, options)
+    if success:
+        await channel.send(f"<@{userID}> created table {name}")
+    else:
+        await error(channel, "You've already created the maximum number of tables")
+
+@client.command(name="delete")
+async def delete_table(context, table_name):
+    channel = context.channel
+    enabled = manager.channel_enabled(channel.id)
+    if not enabled:
+        return
+    userID = context.author.id
+    if manager.table_exists(userID, table_name):
+        manager.delete_table(userID, table_name)
+        await channel.send(f"<@{userID}> deleted table {table_name}")
+    else:
+        return
 
 @client.event
 async def on_command_error(context, error):

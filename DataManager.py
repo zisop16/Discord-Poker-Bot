@@ -2,6 +2,22 @@ from pymongo import MongoClient
 from dotenv import load_dotenv, find_dotenv
 import os
 import time
+from enum import Enum
+
+class Type(Enum):
+    intT = 1
+    boolT = 2
+
+options_types = {
+    "min_buy": Type.intT,
+    "max_buy": Type.intT,
+    "match_stack": Type.boolT,
+    "bb": Type.intT,
+    "sb": Type.intT,
+    "ante": Type.intT,
+    "seats": Type.intT,
+    "time_bank": Type.intT
+}
 
 def default_table_options():
     options = {
@@ -29,8 +45,26 @@ def get_options_string(options):
 def eval_options_string(string_options):
     order = ["min_buy", "max_buy", "match_stack", "bb", "sb", "ante", "seats", "time_bank"]
     option_arr = string_options.split(',')
+    num_options = len(order)
+    if len(option_arr) != num_options:
+        return False
     options = {}
     for option, setting in zip(order, option_arr):
+        required_type = options_types[option]
+        acceptable = False
+        match(required_type):
+            case Type.intT:
+                if setting.isnumeric():
+                    acceptable = True
+                    setting = int(setting)
+                break
+            case Type.boolT:
+                if setting.isnumeric() and (setting == '0' or setting == '1'):
+                    acceptable = True
+                    setting = int(setting)
+                break
+        if not acceptable:
+            return False
         options[option] = setting
     return options
 
@@ -113,7 +147,7 @@ class DataManager:
         """
         data = self.user_data(userID)
         tables = data["tables"]
-        return table_name in tables
+        return table_name.lower() in tables
     
     def safe_add(self, userID):
         """_summary_
@@ -197,12 +231,27 @@ class DataManager:
             options (dict): Dict of all table options
         """
         self.safe_add(userID)
+        max_tables = 10
+        if len(self.get_all_tables(userID)) >= max_tables:
+            return False
         # Make sure all table names are case insensitive
         table_name = table_name.lower()
         query = {"_id": userID}
         command = {
             "$set": {
                 f"tables.{table_name}": options
+            }
+        }
+        self.player_data.update_one(query, command)
+        return True
+    
+    def delete_table(self, userID, table_name):
+        self.safe_add(userID)
+        table_name = table_name.lower()
+        query = {"_id": userID}
+        command = {
+            "$unset": {
+                f"tables.{table_name}": 0
             }
         }
         self.player_data.update_one(query, command)
