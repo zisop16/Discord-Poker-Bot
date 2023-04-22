@@ -36,6 +36,7 @@ def eval_options_string(string_options):
 
 
 class DataManager:
+    free_chips = 200
     def __init__(self, password):
         api_url = f"mongodb+srv://zisop16:{password}@cluster0.khfjusz.mongodb.net/?retryWrites=true&w=majority"
         cluster = MongoClient(api_url)
@@ -54,17 +55,17 @@ class DataManager:
             userID (int): User's Discord ID
 
         Returns:
-            bool: Whether the user was able to receive free chips
+            tuple(bool, int): Whether user received, and remaining time before the user is able to receive free chips
         """
-        free_chips = 200
         self.safe_add(userID)
         data = self.user_data(userID)
         last_pay = data["last_paycheck"]
         curr_time = time.time()
         wait_time = 3600
-        may_receive = (curr_time - last_pay) >= wait_time
+        remaining_time = max(wait_time - (curr_time - last_pay), 0)
+        may_receive = remaining_time == 0
         if may_receive:
-            self.add_chips(userID, free_chips)
+            self.add_chips(userID, DataManager.free_chips)
             query = {"_id": userID}
             command = {
                 "$set": {
@@ -72,7 +73,7 @@ class DataManager:
                 }       
             }
             self.player_data.update_one(query, command)
-        return may_receive
+        return may_receive, remaining_time
 
     def add_user(self, userID):
         """_summary_

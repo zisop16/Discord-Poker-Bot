@@ -5,8 +5,10 @@ class CommandInterface:
         self.data_manager = data_manager
         self.prefix = prefix
 
+    """
     def parse_command(self, message):
         text = message.content
+        userID = message.author.id
         if text.startswith(self.prefix):
             text = text[1:]
             info = text.split(' ')
@@ -25,14 +27,24 @@ class CommandInterface:
                 valid_command = True
 
         return valid_command
+    """
 
     def enable_channel(self, channel):
-        channelID = channel.id
-        self.data_manager.enable_channel(channelID)
+        id = channel.id
+        self.data_manager.enable_channel(id)
 
     def disable_channel(self, channel):
-        channelID = channel.id
-        self.data_manager.disable_channel(channelID)
+        id = channel.id
+        self.data_manager.disable_channel(id)
+
+    def generate_chips(self, userID):
+        received, remaining_time = self.data_manager.generate_chips(userID)
+        if received:
+            pass
+
+
+    def create_table(self, userID, arguments):
+        pass
 
 
 if __name__ == '__main__':
