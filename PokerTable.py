@@ -13,6 +13,33 @@ def close(channelID):
         return table
     return False
 
+def card_to_string(card):
+    suit = card.suit
+    rank = card.rank
+    match(suit):
+        case 1:
+            suit = "<:poker_spade:1099565925872697384>"
+        case 2:
+            suit = "<:poker_heart:1099565940594704484>"
+        case 3:
+            suit = "<:poker_diamond:1099565951193718885>"
+        case 4:
+            suit = "<:poker_club:1099565962157637632>"
+    match(rank):
+        case 10:
+            rank = "T"
+        case 11:
+            rank = "J"
+        case 12:
+            rank = "Q"
+        case 13:
+            rank = "K"
+        case 14:
+            rank = "A"
+        case _:
+            rank = str(rank)
+    return f"{rank} {suit}"
+
 class PokerTable:
     running = {}
     def __init__(self, name, channelID, runnerID, options, data_manager):
@@ -51,6 +78,29 @@ class PokerTable:
             return False
         self.players[seat] = userID
         return True
+    
+    def acting_player(self):
+        return self.players[self.game.action_permissions[0]]
+    
+    def state(self):
+        """_summary_
+
+        Returns:
+            string: string containing game state information
+        """
+        game = self.game
+        pot = game.pot
+        text = ""
+        if game.street != Streets.Preflop:
+            text += "Board:\n"
+            for card in game.board:
+                text += f"{card_to_string(card)} "
+            text += '\n'
+        text += f"Pot: {pot} chips\nCurrent Bets:\n"
+        for seat in game.active_seats:
+            text += f"<@{self.players[seat]}>: {game.current_bets[seat]} chips\n"
+        text += f"Action on: <@{self.acting_player()}>"
+        return text
 
     def sitin(self, userID):
         if not (userID in self.players):
@@ -58,7 +108,7 @@ class PokerTable:
         seat = self.players.index(userID)
         try: 
             self.game.sitin(seat)
-        except (NoChipsException, SeatNotOccupiedException):
+        except (NoChipsException, SeatNotOccupiedException, InvalidSitInException):
             return False
         return True
     

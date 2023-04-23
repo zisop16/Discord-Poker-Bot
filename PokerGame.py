@@ -26,6 +26,8 @@ class InvalidSitOutException(Exception):
     pass
 class InvalidSeatException(Exception):
     pass
+class InvalidSitInException(Exception):
+    pass
 
 """
 Append value into array of numbers, maintaining small -> large order of array
@@ -171,6 +173,8 @@ class PokerGame:
             raise SeatNotOccupiedException()
         if self.stacks[seat] == 0:
             raise NoChipsException()
+        if seat in self.active_seats:
+            raise InvalidSitInException()
         inorder_append(self.active_seats, seat)
 
     def hand_running(self):
@@ -200,6 +204,7 @@ class PokerGame:
     def deal(self):
         self.deck = deck()
         self.initial_bet = True
+        self.hands.clear()
         for seat in range(self.seats):
             if seat in self.active_seats:
                 hand = (self.deck.pop(), self.deck.pop())
@@ -349,8 +354,11 @@ class PokerGame:
                 self.board.append(self.deck.pop())
                 next = Streets.River
             case Streets.River:
-                
                 self.showdown()
+                # Each player who has gone broke during the hand will automatically sit out
+                for seat in self.active_seats:
+                    if self.stacks[seat] == 0:
+                        self.sitout(seat)
                 self.street = Streets.End
                 return
         self.street = next

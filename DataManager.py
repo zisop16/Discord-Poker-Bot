@@ -57,12 +57,10 @@ def eval_options_string(string_options):
                 if setting.isnumeric():
                     acceptable = True
                     setting = int(setting)
-                break
             case Type.boolT:
                 if setting.isnumeric() and (setting == '0' or setting == '1'):
                     acceptable = True
                     setting = int(setting)
-                break
         if not acceptable:
             return False
         options[option] = setting

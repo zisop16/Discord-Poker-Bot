@@ -3,6 +3,8 @@ from discord.ext import commands
 import os
 from dotenv import load_dotenv, find_dotenv
 import json
+import asyncio
+import sys, traceback
 
 from DataManager import *
 from PokerTable import *
@@ -227,30 +229,161 @@ async def cashout(context):
     chips = 0 if success == -1 else success
     await channel.send(f"Player <@{userID}> cashed out for {chips} chips")
 
+async def message_hand(hand, user):
+    left = hand[0]
+    right = hand[1]
+    if right.rank > left.rank:
+        left, right = right, left
+    message_text = f"Your Hand:\n{card_to_string(left)} {card_to_string(right)}"
+    await user.send(message_text)
+
 @client.command(name="deal", aliases=["play"])
 async def deal(context):
-    pass
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    author = context.author
+    userID = author.id
+    table = PokerTable.running[channelID]
+    game = table.game
+    if game.hand_running():
+        return
+    if userID not in table.players:
+        return
+    game.deal()
+    messages = []
+    for seat in game.active_seats:
+        hand = game.hands[seat]
+        playerID = table.players[seat]
+        player = client.get_user(playerID)
+        messages.append(message_hand(hand, player))
+    state = table.state()
+    messages.append(channel.send(state))
+    await asyncio.gather(*messages)
+
+def positive_float(num):
+    return num.replace(".", "").isnumeric()
+
+def calculate_size(game, size):
+    acting_player_seat = game.action_permissions[0]
+    acting_player_bet = game.current_bets[acting_player_seat]
+    acting_player_stack = game.stacks[acting_player_seat]
+    previous_raise = game.previous_raise
+    current_bet = game.current_bet
+    difference = current_bet - acting_player_bet
+    total_pot = game.pot + sum(game.current_bets) + difference
+    bb = game.bb
+    size = size.lower()
+    match(size):
+        case "allin" | "ai" | "all" | "stack":
+            return acting_player_stack + acting_player_bet
+        case "pawt" | "pot":
+            return total_pot + current_bet
+        case "min" | "minraise" | "minimum":
+            return previous_raise + current_bet
+    if size.endswith('%'):
+        percent = size[:len(size)-1]
+        if not positive_float(percent):
+            return False
+        percent = float(percent) / 100
+        return round(total_pot * percent) + current_bet
+    if size.endswith("bb"):
+        num_bb = size[:len(size)-2]
+        if not positive_float(num_bb):
+            return False
+        return round(float(num_bb) * bb)
+    if size.endswith("chips"):
+        size = size[:len(size)-5]
+    elif size.endswith("c"):
+        size = size[:len(size)-1]
+    if size.isnumeric():
+        return int(size)
+    return False
     
 @client.command(name="bet", aliases=["raise", "reraise"])
 async def bet(context, size):
-    pass
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    author = context.author
+    userID = author.id
+    table = PokerTable.running[channelID]
+    game = table.game
+    if not game.hand_running():
+        return
+    if table.acting_player() != userID:
+        return
+    chips_bet = calculate_size(game, size)
+    if not chips_bet:
+        return
+    game.bet(chips_bet)
+        
+    await channel.send(table.state())
 
 @client.command()
 async def call(context):
-    pass
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    author = context.author
+    userID = author.id
+    table = PokerTable.running[channelID]
+    game = table.game
+    if not game.hand_running():
+        return
+    if table.acting_player() != userID:
+        return
+    if not game.may_call():
+        return
+    game.call()
+
+    await channel.send(table.state())
 
 @client.command()
 async def check(context):
-    pass
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    author = context.author
+    userID = author.id
+    table = PokerTable.running[channelID]
+    game = table.game
+    if not game.hand_running():
+        return
+    if table.acting_player() != userID:
+        return
+    if not game.may_check():
+        return
+    game.check()
+
+    await channel.send(table.state())
 
 @client.command()
 async def fold(context):
-    pass
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    author = context.author
+    userID = author.id
+    table = PokerTable.running[channelID]
+    game = table.game
+    if not game.hand_running():
+        return
+    if table.acting_player() != userID:
+        return
+    game.fold()
+
+    await channel.send(table.state())
 
 @client.event
 async def on_command_error(context, error):
     print(f"Command: {context.command.name} invoked incorrectly")
-    print(error)
+    raise error
 
 """
 @client.event
@@ -259,6 +392,7 @@ async def on_ready():
     # dog man's server, #general
     working_guild = client.guilds[0]
     working_channel = working_guild.text_channels[0]
+    print(working_guild.emojis)
 """
 
 
