@@ -22,6 +22,10 @@ class InvalidShowdownException(Exception):
     pass
 class InvalidCallException(Exception):
     pass
+class InvalidSitOutException(Exception):
+    pass
+class InvalidSeatException(Exception):
+    pass
 
 """
 Append value into array of numbers, maintaining small -> large order of array
@@ -152,6 +156,8 @@ class PokerGame:
     def buyin(self, seat, stack):
         if seat in self.occupied_seats:
             raise SeatOccupiedException()
+        if seat >= self.seats or seat < 0:
+            raise InvalidSeatException()
         self.stacks[seat] = stack
         inorder_append(self.occupied_seats, seat)
 
@@ -166,6 +172,26 @@ class PokerGame:
         if self.stacks[seat] == 0:
             raise NoChipsException()
         inorder_append(self.active_seats, seat)
+
+    def hand_running(self):
+        return self.street != Streets.End
+
+    def sitout(self, seat):
+        if seat not in self.occupied_seats:
+            raise SeatNotOccupiedException()
+        if (seat not in self.active_seats) or (seat in self.remaining_hands):
+            raise InvalidSitOutException()
+        self.active_seats.remove(seat)
+
+    def cashout(self, seat):
+        if seat not in self.occupied_seats:
+            raise SeatNotOccupiedException()
+        if seat in self.active_seats:
+            self.sitout(seat)
+        stack = self.stacks[seat]
+        self.occupied_seats.remove(seat)
+        self.stacks[seat] = 0
+        return stack
 
     # Returns number of players with hands remaining in play
     def num_remaining(self):

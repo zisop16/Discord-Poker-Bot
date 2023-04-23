@@ -93,12 +93,12 @@ async def give(context, user, amount):
     else:
         await error(channel, "Please enter a positive integer amount")
         return
-    giver_id = context.author.id
-    giver_balance = manager.get_chips(giver_id)
+    giverID = context.author.id
+    giver_balance = manager.get_chips(giverID)
     amount = min(giver_balance, amount)
     manager.add_chips(mentioned, amount)
-    manager.remove_chips(giver_id, amount)
-    await channel.send(f"<@{giver_id}> gave {amount} chips to <@{mentioned}>")
+    manager.remove_chips(giverID, amount)
+    await channel.send(f"<@{giverID}> gave {amount} chips to <@{mentioned}>")
 
 @client.command(name="create")
 async def create_table(context, *args):
@@ -137,17 +137,115 @@ async def delete_table(context, table_name):
     manager.delete_table(userID, table_name)
     await channel.send(f"<@{userID}> deleted table {table_name}")
     
+@client.command(name="open", aliases=["opentable", "starttable", "runtable", "run"])
 async def open_table(context, table_name):
     channel = context.channel
     enabled = manager.channel_enabled(channel.id)
     if not enabled:
         return
     userID = context.author.id
-    options = manager.get_table(userID, table_name)
-    if not table:
+    channelID = context.channel.id
+    if channelID in PokerTable.running:
+        await error(channel, f"Table {PokerTable.running[channelID].name} is already running in this channel")
         return
-    table = PokerTable(options)
-    table.open()
+    options = manager.get_table(userID, table_name)
+    if not options:
+        await error(channel, f"You do not own a table named {table_name}")
+        return
+    table = PokerTable(table_name, channelID, userID, options, manager)
+    await channel.send(f"Table {table_name} is now running")
+
+@client.command(name="close", aliases=["closetable", "endtable", "end"])
+async def close_table(context):
+    channel = context.channel
+    if channel.id not in PokerTable.running:
+        return
+    table = PokerTable.running[channel.id]
+    authorID = context.author.id
+    channel_manager = context.author.guild_permissions.manage_channels
+    may_close = channel_manager or authorID == table.runnerID
+    if not may_close:
+        return
+    close(channel.id)
+    await channel.send(f"Closed table: {table.name}")
+
+@client.command(name="buyin", aliases=["buy"])
+async def buyin(context, seat, stack):
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    userID = context.author.id
+    table = PokerTable.running[channelID]
+    if not (seat.isnumeric() and stack.isnumeric()):
+        return
+    seat = int(seat)
+    stack = int(stack)
+    success = table.buyin(userID, seat, stack)
+    if not success:
+        await error(channel, f"Failed to buyin at seat {seat} with {stack} chips")
+        return
+    await channel.send(f"Player: <@{userID}> sitting at seat: {seat} with {stack} chips")
+
+@client.command(name="sitin", aliases=["sit", "sitdown"])
+async def sitin(context):
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    userID = context.author.id
+    table = PokerTable.running[channelID]
+    success = table.sitin(userID)
+    if not success:
+        return
+    await channel.send(f"Player: <@{userID}> sitting in")
+
+@client.command(name="sitout", aliases=["situp", "stand"])
+async def sitout(context):
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    userID = context.author.id
+    table = PokerTable.running[channelID]
+    success = table.sitout(userID)
+    if not success:
+        return
+    await channel.send(f"Player <@{userID}> has stood up")
+
+@client.command(name="cashout", aliases=["cash", "leave", "buyout"])
+async def cashout(context):
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    userID = context.author.id
+    table = PokerTable.running[channelID]
+    success = table.cashout(userID)
+    if not success:
+        return
+    chips = 0 if success == -1 else success
+    await channel.send(f"Player <@{userID}> cashed out for {chips} chips")
+
+@client.command(name="deal", aliases=["play"])
+async def deal(context):
+    pass
+    
+@client.command(name="bet", aliases=["raise", "reraise"])
+async def bet(context, size):
+    pass
+
+@client.command()
+async def call(context):
+    pass
+
+@client.command()
+async def check(context):
+    pass
+
+@client.command()
+async def fold(context):
+    pass
 
 @client.event
 async def on_command_error(context, error):
