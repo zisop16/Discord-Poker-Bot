@@ -13,6 +13,13 @@ def close(channelID):
         return table
     return False
 
+def hand_to_string(hand):
+    left = hand[0]
+    right = hand[1]
+    if right.rank > left.rank:
+        left, right = right, left
+    return f"{card_to_string(left)} {card_to_string(right)}"
+
 def card_to_string(card):
     suit = card.suit
     rank = card.rank
@@ -96,10 +103,24 @@ class PokerTable:
             for card in game.board:
                 text += f"{card_to_string(card)} "
             text += '\n'
-        text += f"Pot: {pot} chips\nCurrent Bets:\n"
-        for seat in game.active_seats:
-            text += f"<@{self.players[seat]}>: {game.current_bets[seat]} chips\n"
-        text += f"Action on: <@{self.acting_player()}>"
+        text += f"Pot: {pot}\n"
+        if game.street != Streets.End:
+            text += "Current Bets:\n"
+            for seat in game.active_seats:
+                text += f"<@{self.players[seat]}> ({game.stacks[seat]}): {game.current_bets[seat]}\n"
+            text += f"Action on: <@{self.acting_player()}>"
+        else:
+            winners = game.recent_winners
+            if game.went_showdown:
+                text += f"Winning {'Hands' if len(winners) > 1 else 'Hand'}:\n"
+                for seat in winners:
+                    hand = hand_to_string(game.hands[seat])
+                    text += f"<@{self.players[seat]}>: {hand}"
+                    if seat != winners[len(winners)-1]:
+                        text += '\n'
+            else:
+                text += f"All other players folded\nWinner: <@{self.players[winners[0]]}>"
+
         return text
 
     def sitin(self, userID):

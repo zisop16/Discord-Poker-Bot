@@ -80,6 +80,8 @@ class PokerGame:
         # List of addons like (2, 200) queued for next hand as (seat, chips)
         self.addons = []
         self.deck = None
+        self.headsup = False
+        self.went_showdown = False
         self.bb = 2
         self.sb = 1
         self.ante = 0
@@ -179,6 +181,10 @@ class PokerGame:
 
     def hand_running(self):
         return self.street != Streets.End
+    
+    def rotate_dealer(self):
+        next_dealer = self.first_to_act(self.active_seats)
+        self.dealer = next_dealer
 
     def sitout(self, seat):
         if seat not in self.occupied_seats:
@@ -186,6 +192,8 @@ class PokerGame:
         if (seat not in self.active_seats) or (seat in self.remaining_hands):
             raise InvalidSitOutException()
         self.active_seats.remove(seat)
+        if len(self.active_seats) == 1:
+            self.dealer = None
 
     def cashout(self, seat):
         if seat not in self.occupied_seats:
@@ -203,8 +211,11 @@ class PokerGame:
     
     def deal(self):
         self.deck = deck()
+        self.pot = 0
         self.initial_bet = True
+        self.current_bets = [0 for i in range(self.seats)]
         self.hands.clear()
+        self.board.clear()
         for seat in range(self.seats):
             if seat in self.active_seats:
                 hand = (self.deck.pop(), self.deck.pop())
@@ -217,10 +228,15 @@ class PokerGame:
             raise NoPlayersException()
         if self.dealer == None:
             self.dealer = random.sample(self.active_seats, 1)[0]
+        else:
+            self.rotate_dealer()
+        print(self.dealer)
         self.street = Streets.Preflop
         if self.num_remaining() == 2:
+            self.headsup = True
             self.deal_headsup()
         else:
+            self.headsup = False
             self.deal_ring()
 
     def open_action(self, seat_ind, include_final=False):
@@ -231,9 +247,9 @@ class PokerGame:
                 seats = self.remaining_hands[seat_ind:] + self.remaining_hands[:seat_ind-1]
         else:
             seats = self.remaining_hands[seat_ind:] + self.remaining_hands[:seat_ind]
+        self.action_permissions.clear()
         for seat in seats:
-            if not (seat in self.action_permissions):
-                self.action_permissions.append(seat)
+            self.action_permissions.append(seat)
 
     def deal_headsup(self):
         dealer_ind = self.active_seats.index(self.dealer)
@@ -286,7 +302,7 @@ class PokerGame:
         self.pot += self.current_bets[acting_player]
         self.current_bets[acting_player] = 0
         # Remove the acting player's seat from the remaining hands list of active seats
-        del self.remaining_hands[self.remaining_hands.index(acting_player)]
+        self.remaining_hands.remove(acting_player)
         self.action_forward()
 
     # Determine whether the current acting player is able to initiate a new bet
@@ -356,10 +372,10 @@ class PokerGame:
             case Streets.River:
                 self.showdown()
                 # Each player who has gone broke during the hand will automatically sit out
+                self.street = Streets.End
                 for seat in self.active_seats:
                     if self.stacks[seat] == 0:
                         self.sitout(seat)
-                self.street = Streets.End
                 return
         self.street = next
 
@@ -411,14 +427,15 @@ class PokerGame:
                 break
             curr_chips_req = invested[0][1]
             curr_pot = curr_chips_req * len(invested)
+            curr_pot_winners = self.winners()
             # The winner of the main pot is always awarded the ante
             if first_pot:
                 curr_pot += self.ante
                 first_pot = False
+                self.recent_winners = curr_pot_winners
             for i in range(len(invested)):
                 curr_seat, curr_chips = invested[i]
                 invested[i] = curr_seat, curr_chips - curr_chips_req
-            curr_pot_winners = self.winners()
             num_winners = len(curr_pot_winners)
             for winner in curr_pot_winners:
                 self.stacks[winner] += curr_pot // num_winners
@@ -435,8 +452,15 @@ class PokerGame:
         # Return extra chips to deep stacked player's stack
         final_seat, extra_chips = invested[0]
         self.stacks[final_seat] += extra_chips
+        # No hands are remaining in play now
+        self.went_showdown = True
+        self.remaining_hands.clear()
 
     def first_to_act(self, seats):
+        if len(seats) == 1:
+            return seats[0]
+        if self.headsup:
+            return seats[0] if self.dealer == seats[1] else seats[1]
         # Weird modulus algorithm to find seat closest to SB
         minimum_seat = None
         minimum = None
@@ -455,6 +479,9 @@ class PokerGame:
         if self.num_remaining() == 1:
             remaining_player = self.remaining_hands[0]
             self.stacks[remaining_player] += self.pot + sum(self.current_bets)
+            self.remaining_hands.clear()
+            self.recent_winners = [remaining_player]
+            self.went_showdown = False
             self.street = Streets.End
             return
 
@@ -465,9 +492,8 @@ class PokerGame:
             next_ind = (actor_ind + 1) % self.num_remaining()
             self.open_action(next_ind)
         # If there are players left to act, skip the actions for players who are already allin
-        if len(self.action_permissions) != 0:
-            while not self.may_act():
-                self.action_permissions.pop(0)
+        while (len(self.action_permissions) != 0) and (not self.may_act()):
+            self.action_permissions.pop(0)
         # If no players are left, or the hand is allin, move to the next street
         if len(self.action_permissions) == 0 or self.players_allin():
             self.next_street()
@@ -498,32 +524,13 @@ if __name__ == '__main__':
     game = PokerGame()
     game.buyin(0, 200)
     game.sitin(0)
-    game.buyin(1, 250)
+    game.buyin(1, 200)
     game.sitin(1)
-    game.buyin(2, 180)
-    game.sitin(2)
+    # game.buyin(2, 180)
+    # game.sitin(2)
 
     # Preflop
     game.deal()
-    game.bet(5)
-    game.fold()
-    game.call()
-
-    # Flop
-    game.check()
-    game.bet(2)
-    game.bet(8)
-    game.call()
-
-    # Turn
-    game.check()
-    game.bet(30)
-    game.call()
-    print(game.pot)
-
-
-    # River
-    game.check()
     game.bet(200)
     game.call()
 

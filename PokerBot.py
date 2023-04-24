@@ -230,12 +230,7 @@ async def cashout(context):
     await channel.send(f"Player <@{userID}> cashed out for {chips} chips")
 
 async def message_hand(hand, user):
-    left = hand[0]
-    right = hand[1]
-    if right.rank > left.rank:
-        left, right = right, left
-    message_text = f"Your Hand:\n{card_to_string(left)} {card_to_string(right)}"
-    await user.send(message_text)
+    await user.send(f"Your Hand:\n{hand_to_string(hand)}")
 
 @client.command(name="deal", aliases=["play"])
 async def deal(context):
@@ -318,11 +313,14 @@ async def bet(context, size):
     chips_bet = calculate_size(game, size)
     if not chips_bet:
         return
-    game.bet(chips_bet)
+    try:
+        game.bet(chips_bet)
+    except InvalidBetException:
+        return
         
     await channel.send(table.state())
 
-@client.command()
+@client.command(aliases=["cawl"])
 async def call(context):
     channel = context.channel
     channelID = channel.id
@@ -336,9 +334,10 @@ async def call(context):
         return
     if table.acting_player() != userID:
         return
-    if not game.may_call():
+    try:
+        game.call()
+    except InvalidCallException:
         return
-    game.call()
 
     await channel.send(table.state())
 
@@ -356,9 +355,10 @@ async def check(context):
         return
     if table.acting_player() != userID:
         return
-    if not game.may_check():
+    try:
+        game.check()
+    except InvalidCheckException:
         return
-    game.check()
 
     await channel.send(table.state())
 
