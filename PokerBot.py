@@ -187,7 +187,26 @@ async def buyin(context, seat, stack):
     if not success:
         await error(channel, f"Failed to buyin at seat {seat} with {stack} chips")
         return
-    await channel.send(f"Player: <@{userID}> sitting at seat: {seat} with {stack} chips")
+    await channel.send(f"Player: <@{userID}> sitting at seat {seat} with {stack} chips")
+
+@client.command(name="addon", aliases=["add", "rebuy"])
+async def addon(context, chips):
+    channel = context.channel
+    channelID = channel.id
+    if channelID not in PokerTable.running:
+        return
+    userID = context.author.id
+    table = PokerTable.running[channelID]
+    if not (chips.isnumeric()):
+        return
+    chips = int(chips)
+    success = table.addon(userID, chips)
+    if not success:
+        await error(channel, f"Failed to increase <@{userID}> stack by {chips} chips")
+        return
+    seat = table.players.index(userID)
+    new_stack = table.game.stacks[seat]
+    await channel.send(f"Player: <@{userID}> increased stack to {new_stack} chips")
 
 @client.command(name="sitin", aliases=["sit", "sitdown"])
 async def sitin(context):

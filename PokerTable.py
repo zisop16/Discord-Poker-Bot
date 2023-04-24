@@ -86,6 +86,25 @@ class PokerTable:
         self.players[seat] = userID
         return True
     
+    def addon(self, userID, chips):
+        if userID not in self.players:
+            return False
+        seat = self.players.index(userID)
+        max_total = self.max_buy * self.game.bb
+        min_total = self.min_buy * self.game.bb
+        if self.match_stack:
+            max_chips = max(max_chips, max(self.game.stacks))
+        total = chips + self.game.stacks[seat]
+        if total < min_total or total > max_total:
+            return False
+        player_chips = self.data_manager.get_chips(userID)
+        if chips > player_chips:
+            return False
+        self.game.addon(seat, chips)
+        self.data_manager.remove_chips(userID, chips)
+        return True
+        
+    
     def acting_player(self):
         return self.players[self.game.action_permissions[0]]
     
@@ -98,7 +117,7 @@ class PokerTable:
         game = self.game
         pot = game.pot
         text = ""
-        if game.street != Streets.Preflop:
+        if game.street != Streets.Preflop and len(game.board) > 0:
             text += "Board:\n"
             for card in game.board:
                 text += f"{card_to_string(card)} "

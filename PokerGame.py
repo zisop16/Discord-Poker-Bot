@@ -77,8 +77,6 @@ class PokerGame:
         self.hands = []
         # List of cards on board, indices: flop = 0-2, turn = 3, river = 4
         self.board = []
-        # List of addons like (2, 200) queued for next hand as (seat, chips)
-        self.addons = []
         self.deck = None
         self.headsup = False
         self.went_showdown = False
@@ -212,8 +210,10 @@ class PokerGame:
     def deal(self):
         self.deck = deck()
         self.pot = 0
+        self.current_bet = 0
         self.initial_bet = True
         self.current_bets = [0 for i in range(self.seats)]
+        self.chips_invested = [0 for i in range(self.seats)]
         self.hands.clear()
         self.board.clear()
         for seat in range(self.seats):
@@ -230,7 +230,6 @@ class PokerGame:
             self.dealer = random.sample(self.active_seats, 1)[0]
         else:
             self.rotate_dealer()
-        print(self.dealer)
         self.street = Streets.Preflop
         if self.num_remaining() == 2:
             self.headsup = True
@@ -381,7 +380,7 @@ class PokerGame:
 
         # If first to act is already allin, 
         # Move the action forward to the next player who may act
-        if not self.may_act():
+        if (not self.may_act()) or self.players_allin():
             self.action_forward()
 
     # Determine if all players remaining in the hand are allin
