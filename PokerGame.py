@@ -1,5 +1,4 @@
-from pokereval.card import Card
-from pokereval.hand_evaluator import HandEvaluator
+from treys import Evaluator, Card
 from more_itertools import chunked
 from enum import Enum
 import random
@@ -47,11 +46,14 @@ class Streets(Enum):
     River = 3
     End = 4
 
+def card_rank(card):
+    return (card & 0xF00) >> 8
+
 """
 Returns a Card given a string name like 'As'
 """
 def card(name):
-    return Card(name[0], name[1])
+    return Card.new(name)
 
 """
 Returns a list of Cards given a string sequence of names like 'AsTd5c'
@@ -71,6 +73,7 @@ def deck():
     return shuffled
 
 class PokerGame:
+    evaluator = Evaluator()
     def __init__(self):
         self.game_type = "No-Limit Hold'em"
         # List of tuples of 2 cards like [AcAd, Ts9s, 5d2c] for all seats dealt in
@@ -115,9 +118,9 @@ class PokerGame:
         if self.street != Streets.River:
             raise InvalidShowdownException()
         live_hands = [(seat, hand) for seat, hand in enumerate(self.hands) if seat in self.remaining_hands]
-        scores = [HandEvaluator.evaluate_hand(hand, self.board) for seat, hand in live_hands]
-        max_score = max(scores)
-        winners = [seat for ((seat, hand), score) in zip(live_hands, scores) if score == max_score]
+        scores = [PokerGame.evaluator.evaluate_hand(hand, self.board) for seat, hand in live_hands]
+        min_score = min(scores)
+        winners = [seat for ((seat, hand), score) in zip(live_hands, scores) if score == min_score]
         return winners
 
     # Invest chips from stack of seat into the pot, as a bet or a call
@@ -210,8 +213,9 @@ class PokerGame:
     def deal(self):
         self.deck = deck()
         self.pot = 0
-        self.current_bet = 0
+        self.current_bet = self.bb
         self.initial_bet = True
+        self.previous_raise = 0
         self.current_bets = [0 for i in range(self.seats)]
         self.chips_invested = [0 for i in range(self.seats)]
         self.hands.clear()
@@ -520,6 +524,7 @@ class PokerGame:
         self.action_forward()
 
 if __name__ == '__main__':
+    """
     game = PokerGame()
     game.buyin(0, 200)
     game.sitin(0)
@@ -535,3 +540,7 @@ if __name__ == '__main__':
 
     for stack in game.stacks:
         print(stack)
+    """
+    a = card("Ah")
+    r = card_rank(a)
+    print(r)

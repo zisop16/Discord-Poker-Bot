@@ -16,35 +16,23 @@ def close(channelID):
 def hand_to_string(hand):
     left = hand[0]
     right = hand[1]
-    if right.rank > left.rank:
+    if card_rank(right) > card_rank(left):
         left, right = right, left
     return f"{card_to_string(left)} {card_to_string(right)}"
 
 def card_to_string(card):
-    suit = card.suit
-    rank = card.rank
+    card = Card.int_to_str(card)
+    suit = card[1]
+    rank = card[0]
     match(suit):
-        case 1:
+        case 's':
             suit = "<:poker_spade:1099565925872697384>"
-        case 2:
+        case 'h':
             suit = "<:poker_heart:1099565940594704484>"
-        case 3:
+        case 'd':
             suit = "<:poker_diamond:1099565951193718885>"
-        case 4:
+        case 'c':
             suit = "<:poker_club:1099565962157637632>"
-    match(rank):
-        case 10:
-            rank = "T"
-        case 11:
-            rank = "J"
-        case 12:
-            rank = "Q"
-        case 13:
-            rank = "K"
-        case 14:
-            rank = "A"
-        case _:
-            rank = str(rank)
     return f"{rank} {suit}"
 
 class PokerTable:
@@ -182,7 +170,13 @@ class PokerTable:
 
 
 if __name__ == '__main__':
+    """
     command = "-paycheck"
     load_dotenv(find_dotenv())
     password = os.getenv("MONGO_PASS")
     manager = DataManager(password)
+    """
+    a = cards("Ah5d")
+    b = cards("4sKc")
+    c = cards("Qs2s")
+    print(hand_to_string(a), hand_to_string(b), hand_to_string(c))
