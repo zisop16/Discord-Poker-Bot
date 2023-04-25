@@ -114,6 +114,9 @@ async def create_table(context, *args):
         options = eval_options_string(args[1])
         if not options:
             await error(channel, "Invalid options string")
+        valid = validate_options(options)
+        if not valid:
+            await error(channel, "Invalid options string")
     else:
         return
     name = args[0]
@@ -126,6 +129,37 @@ async def create_table(context, *args):
         await channel.send(f"<@{userID}> created table {name}")
     else:
         await error(channel, "You've already created the maximum number of tables")
+
+@client.command(name="options", aliases=["setoption", "tableoptions", "option", "tableoption"])
+async def options(context, *args):
+    if len(args) == 0:
+        return
+    channel = context.channel
+    channelID = channel.id
+    if not manager.channel_enabled(channelID):
+        return
+    userID = context.author.id
+    table_name = args[0]
+    options = manager.get_table(userID, table_name)
+    if not options:
+        return
+    if len(args) == 1:
+        text = f"Options for table: {table_name}```"
+        for option in options:
+            setting = options[option]
+            match(option):
+                case "min_buy":
+                    setting = f"{setting}bb"
+                case "max_buy":
+                    setting = f"{setting}bb"
+                case "match_stack":
+                    setting = "Enabled" if setting else "Disabled"
+                case "time_bank":
+                    setting = f"{setting} seconds"
+                
+            text += f"{option}: {setting}\n"
+        text += f"\nOptions String:\n{get_options_string(options)}```"
+        await channel.send(text)
 
 @client.command(name="delete")
 async def delete_table(context, table_name):

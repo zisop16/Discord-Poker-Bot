@@ -42,6 +42,54 @@ def get_options_string(options):
         final = final[:len(final) - 1]
     return final
 
+def validate_options(options):
+    """_summary_
+    List of table options:
+    min_buy = # of BB, <= max_buy, >= 5, 
+    max_buy = # of BB, >= min_buy, <= 500
+    match_stack = (0 == off) or (1 == on)
+    bb = # of chips, > 1
+    sb = # of chips, > 0, <= bb
+    ante = # of chips, >= 0
+    seats = # of seats, >= 2, <= 9
+    time_bank = # of seconds, >= 10, or (infinity == -1)
+
+    Determines whether options are within valid constraints
+    Assumes all options are of correct data types
+    All numeric options MUST be nonnegative integers
+    Args:
+        options (dict): table options
+
+    Returns:
+        bool: Whether options are within valid constraints
+    """
+    min_buy = options["min_buy"]
+    if min_buy < 5:
+        return False
+    max_buy = options["max_buy"]
+    if max_buy < min_buy or max_buy > 500:
+        return False
+    match_stack = options["match_stack"]
+    if match_stack not in [0, 1]:
+        return False
+    bb = options["bb"]
+    if bb < 1:
+        return False
+    sb = options["sb"]
+    if sb > bb or sb < 0:
+        return False
+    ante = options["ante"]
+    if ante < 0:
+        return False
+    seats = options["seats"]
+    if seats < 2 or seats > 9:
+        return False
+    time_bank = options["time_bank"]
+    if time_bank != -1:
+        if time_bank < 10:
+            return False
+    
+
 def eval_options_string(string_options):
     order = ["min_buy", "max_buy", "match_stack", "bb", "sb", "ante", "seats", "time_bank"]
     option_arr = string_options.split(',')
@@ -219,15 +267,6 @@ class DataManager:
 
     def create_table(self, userID, table_name, options):
         """_summary_
-        List of table options:
-        min_buy = # of BB, < max_buy, > 5, 
-        max_buy = # of BB, > min_buy, <= 500
-        match_stack = (0 == off) or (1 == on)
-        bb = # of chips, > 1
-        sb = # of chips, > 0, <= bb
-        ante = # of chips, >= 0, <= bb
-        seats = # of seats, >= 2, <= 9
-        time_bank = # of seconds, >= 10, or (infinity == -1)
 
         Args:
             userID (int): User's discord ID
