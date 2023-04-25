@@ -257,17 +257,15 @@ async def run_clock(channel, current_action_id):
     if table.game.street == Streets.End:
         return
     time_bank = table.time_bank
-    warning_time = 5
-    initial_sleep = time_bank - warning_time
-    acting_seat = table.game.action_permissions[0]
-    playerID = table.players[acting_seat]
-    await asyncio.sleep(initial_sleep)
-    if table.current_action_id != current_action_id:
-        return
-    await channel.send(f"<@{playerID}> you have 5 seconds left to act!")
-    await asyncio.sleep(warning_time)
-    if table.current_action_id != current_action_id:
-        return
+    time_message = await channel.send(f"{time_bank} seconds left to act!")
+    update_interval = 3
+    while time_bank > 0:
+        curr_interval = min(update_interval, time_bank)
+        await asyncio.sleep(curr_interval)
+        if table.current_action_id != current_action_id:
+            return
+        time_bank -= curr_interval
+        await time_message.edit(content=f"{time_bank} seconds left to act!")
     await continue_action(channel)
 
 async def continue_action(channel):
