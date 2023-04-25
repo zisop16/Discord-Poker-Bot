@@ -251,6 +251,44 @@ async def cashout(context):
 async def message_hand(hand, user):
     await user.send(f"Your Hand:\n{hand_to_string(hand)}")
 
+async def run_clock(channel, current_action_id):
+    channelID = channel.id
+    table = PokerTable.running[channelID]
+    if table.game.street == Streets.End:
+        return
+    time_bank = table.time_bank
+    warning_time = 5
+    initial_sleep = time_bank - warning_time
+    acting_seat = table.game.action_permissions[0]
+    playerID = table.players[acting_seat]
+    await asyncio.sleep(initial_sleep)
+    if table.current_action_id != current_action_id:
+        return
+    await channel.send(f"<@{playerID}> you have 5 seconds left to act!")
+    await asyncio.sleep(warning_time)
+    if table.current_action_id != current_action_id:
+        return
+    await continue_action(channel)
+
+async def continue_action(channel):
+    channelID = channel.id
+    table = PokerTable.running[channelID]
+    game = table.game
+    table.current_action_id += 1
+    acting_seat = game.action_permissions[0]
+    playerID = table.players[acting_seat]
+    time_bank = table.time_bank
+    check = game.may_check()
+    if check:
+        game.check()
+    else:
+        acting_seat = game.action_permissions[0]
+        game.fold()
+        game.sitout(acting_seat)
+    await channel.send(f"<@{playerID}> auto-{'checked' if check else 'folded and sat out'} after {time_bank} seconds")
+    await channel.send(table.state())
+    await run_clock(channel, table.current_action_id)
+
 @client.command(name="deal", aliases=["play"])
 async def deal(context):
     channel = context.channel
@@ -265,7 +303,11 @@ async def deal(context):
         return
     if userID not in table.players:
         return
-    game.deal()
+    try:
+        game.deal()
+    except (NoPlayersException, ShortStackException):
+        return
+    table.current_action_id += 1
     messages = []
     for seat in game.active_seats:
         hand = game.hands[seat]
@@ -275,6 +317,7 @@ async def deal(context):
     state = table.state()
     messages.append(channel.send(state))
     await asyncio.gather(*messages)
+    await run_clock(channel, table.current_action_id)
 
 def positive_float(num):
     return num.replace(".", "").isnumeric()
@@ -334,10 +377,12 @@ async def bet(context, size):
         return
     try:
         game.bet(chips_bet)
+        table.current_action_id += 1
     except InvalidBetException:
         return
         
     await channel.send(table.state())
+    await run_clock(channel, table.current_action_id)
 
 @client.command(aliases=["cawl"])
 async def call(context):
@@ -355,10 +400,12 @@ async def call(context):
         return
     try:
         game.call()
+        table.current_action_id += 1
     except InvalidCallException:
         return
 
     await channel.send(table.state())
+    await run_clock(channel, table.current_action_id)
 
 @client.command()
 async def check(context):
@@ -376,10 +423,12 @@ async def check(context):
         return
     try:
         game.check()
+        table.current_action_id += 1
     except InvalidCheckException:
         return
 
     await channel.send(table.state())
+    await run_clock(channel, table.current_action_id)
 
 @client.command()
 async def fold(context):
@@ -396,8 +445,10 @@ async def fold(context):
     if table.acting_player() != userID:
         return
     game.fold()
+    table.current_action_id += 1
 
     await channel.send(table.state())
+    await run_clock(channel, table.current_action_id)
 
 @client.event
 async def on_command_error(context, error):
@@ -407,13 +458,11 @@ async def on_command_error(context, error):
 """
 @client.event
 async def on_ready():
-    print(f"Logged in as {client.user}")
-    # dog man's server, #general
-    working_guild = client.guilds[0]
-    working_channel = working_guild.text_channels[0]
-    print(working_guild.emojis)
+    while True:
+        await asyncio.sleep(1)
+        for channelID in PokerTable.running:
+            table = PokerTable.running[channelID]
 """
-
 
 """
 @client.event

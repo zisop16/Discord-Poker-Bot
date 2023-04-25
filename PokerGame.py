@@ -215,7 +215,7 @@ class PokerGame:
         self.pot = 0
         self.current_bet = self.bb
         self.initial_bet = True
-        self.previous_raise = 0
+        self.previous_raise = self.bb
         self.current_bets = [0 for i in range(self.seats)]
         self.chips_invested = [0 for i in range(self.seats)]
         self.hands.clear()
@@ -229,6 +229,9 @@ class PokerGame:
 
         self.remaining_hands = [seat for seat in self.active_seats]
         if self.num_remaining() < 2:
+            # Need to allow players to sit out if a hand is an invalid deal, so
+            # Clear remaining hands
+            self.remaining_hands.clear()
             raise NoPlayersException()
         if self.dealer == None:
             self.dealer = random.sample(self.active_seats, 1)[0]
@@ -266,6 +269,7 @@ class PokerGame:
 
         after_ante = bb_stack - self.ante
         if after_ante < 1:
+            self.remaining_hands.clear()
             raise ShortStackException()
         
         sb = min(self.sb, sb_stack)
@@ -292,6 +296,7 @@ class PokerGame:
         bb_stack = self.stacks[bb_seat]
         after_ante = bb_stack - self.ante
         if after_ante < 1:
+            self.remaining_hands.clear()
             raise ShortStackException()
         bb = min(self.bb, bb_stack)
         self.stacks[bb_seat] -= self.ante

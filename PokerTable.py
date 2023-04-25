@@ -43,6 +43,7 @@ class PokerTable:
         game.bb = options["bb"]
         game.ante = options["ante"]
         game.seats = options["seats"]
+        self.current_action_id = 0
         self.name = name
         self.game = game
         self.time_bank = options["time_bank"]
@@ -91,7 +92,6 @@ class PokerTable:
         self.game.addon(seat, chips)
         self.data_manager.remove_chips(userID, chips)
         return True
-        
     
     def acting_player(self):
         return self.players[self.game.action_permissions[0]]
