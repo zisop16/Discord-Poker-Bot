@@ -118,7 +118,7 @@ class PokerGame:
         if self.street != Streets.River:
             raise InvalidShowdownException()
         live_hands = [(seat, hand) for seat, hand in enumerate(self.hands) if seat in self.remaining_hands]
-        scores = [PokerGame.evaluator.evaluate_hand(hand, self.board) for seat, hand in live_hands]
+        scores = [PokerGame.evaluator.evaluate(tuple(hand), tuple(self.board)) for seat, hand in live_hands]
         min_score = min(scores)
         winners = [seat for ((seat, hand), score) in zip(live_hands, scores) if score == min_score]
         return winners

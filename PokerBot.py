@@ -286,6 +286,7 @@ async def message_hand(hand, user):
     await user.send(f"Your Hand:\n{hand_to_string(hand)}")
 
 async def run_clock(channel, current_action_id):
+    return
     channelID = channel.id
     table = PokerTable.running[channelID]
     if table.game.street == Streets.End:
