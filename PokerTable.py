@@ -53,6 +53,7 @@ class PokerTable:
         self.players = [None for seat in range(game.seats)]
         self.data_manager = data_manager
         self.runnerID = runnerID
+        self.options = options
         PokerTable.running[channelID] = self
 
     def buyin(self, userID, seat, stack):

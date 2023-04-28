@@ -8,6 +8,8 @@ class Type(Enum):
     intT = 1
     boolT = 2
 
+options_order = ["min_buy", "max_buy", "match_stack", "sb", "bb", "ante", "seats", "time_bank"]
+
 options_types = {
     "min_buy": Type.intT,
     "max_buy": Type.intT,
@@ -33,9 +35,8 @@ def default_table_options():
     return options
 
 def get_options_string(options):
-    order = ["min_buy", "max_buy", "match_stack", "bb", "sb", "ante", "seats", "time_bank"]
     final = ""
-    for option in order:
+    for option in options_order:
         curr_setting = options[option]
         final += str(curr_setting) + ','
     if final[len(final) - 1] == ',':
@@ -91,13 +92,12 @@ def validate_options(options):
     
 
 def eval_options_string(string_options):
-    order = ["min_buy", "max_buy", "match_stack", "bb", "sb", "ante", "seats", "time_bank"]
     option_arr = string_options.split(',')
-    num_options = len(order)
+    num_options = len(options_order)
     if len(option_arr) != num_options:
         return False
     options = {}
-    for option, setting in zip(order, option_arr):
+    for option, setting in zip(options_order, option_arr):
         required_type = options_types[option]
         acceptable = False
         match(required_type):
@@ -300,9 +300,11 @@ class DataManager:
         self.player_data.update_one(query, command)
 
     def get_table_names(self, userID):
-        return self.get_all_tables(userID).keys()
+        all_tables = self.get_all_tables(userID)
+        return all_tables.keys()
 
     def get_all_tables(self, userID):
+        self.safe_add(userID)
         data = self.user_data(userID)
         tables = data["tables"]
         return tables

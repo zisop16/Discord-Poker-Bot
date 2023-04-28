@@ -130,36 +130,80 @@ async def create_table(context, *args):
     else:
         await error(channel, "You've already created the maximum number of tables")
 
-@client.command(name="options", aliases=["setoption", "tableoptions", "option", "tableoption"])
+@client.command(name="options", aliases=["showoptions", "getoptions"])
 async def options(context, *args):
-    if len(args) == 0:
-        return
     channel = context.channel
     channelID = channel.id
     if not manager.channel_enabled(channelID):
         return
-    userID = context.author.id
-    table_name = args[0]
-    options = manager.get_table(userID, table_name)
+    running = channelID in PokerTable.running
+    if len(args) == 0:
+        if running:
+            table = PokerTable.running[channelID]
+            table_name = table.name
+            userID = table.runnerID
+            options = table.options
+        else:
+            return
+    elif len(args) == 1:
+        userID = context.author.id
+        table_name = args[0]
+        options = manager.get_table(userID, table_name)
+    else:
+        userID = get_mentioned(args[0])
+        if not userID:
+            return
+        table_name = args[1]
+        options = manager.get_table(userID, table_name)
     if not options:
         return
-    if len(args) == 1:
-        text = f"Options for table: {table_name}```"
-        for option in options:
-            setting = options[option]
-            match(option):
-                case "min_buy":
-                    setting = f"{setting}bb"
-                case "max_buy":
-                    setting = f"{setting}bb"
-                case "match_stack":
-                    setting = "Enabled" if setting else "Disabled"
-                case "time_bank":
-                    setting = f"{setting} seconds"
-                
-            text += f"{option}: {setting}\n"
-        text += f"\nOptions String:\n{get_options_string(options)}```"
-        await channel.send(text)
+    text = f"Options for <@{userID}>'s table: {table_name}```"
+    for option in options_order:
+        setting = options[option]
+        match(option):    
+            case "min_buy":    
+                setting = f"{setting}bb"
+            case "max_buy":
+                setting = f"{setting}bb"
+            case "match_stack":
+                setting = "Enabled" if setting else "Disabled"
+            case "time_bank":
+                setting = f"{setting} seconds"
+            
+        text += f"{option}: {setting}\n"
+    text += f"\nOptions String:\n{get_options_string(options)}```"
+    await channel.send(text)
+
+@client.command(name="setoption", aliases=["setoptions", "editoption", "editoptions"])
+async def set_options(context, *args):
+    channel = context.channel
+    channelID = channel.id
+    if not manager.channel_enabled(channelID):
+        return
+
+@client.command(name="tables", aliases=["listtables", "gettables"])
+async def get_tables(context, *args):
+    channel = context.channel
+    channelID = channel.id
+    if not manager.channel_enabled(channelID):
+        return
+    if len(args) == 0:
+        userID = context.author.id
+    else:
+        userID = get_mentioned(args[0])
+        if not userID:
+            return
+    tables = manager.get_table_names(userID)
+    text = f"Tables owned by <@{userID}>:"
+    if len(tables) != 0:
+        has_tables = True
+    if has_tables:
+        text += "```\n"
+        for name in tables:
+            text += f"{name}\n"
+        text += "```"
+    await channel.send(text)
+    
 
 @client.command(name="delete")
 async def delete_table(context, table_name):
