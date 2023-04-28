@@ -180,6 +180,19 @@ async def set_options(context, *args):
     channelID = channel.id
     if not manager.channel_enabled(channelID):
         return
+    if len(args) == 0:
+        return
+    userID = context.author.id
+    table_name = args[0]
+    options = manager.get_table(userID, table_name)
+    running = False
+    for name in PokerTable.running:
+        table = PokerTable.running[name]
+        if table.runnerID == userID and name == table_name:
+            running = table
+            break
+    if running:
+        pass
 
 @client.command(name="tables", aliases=["listtables", "gettables"])
 async def get_tables(context, *args):
